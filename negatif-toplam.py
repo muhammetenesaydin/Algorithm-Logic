@@ -14,3 +14,21 @@ def negatif_toplam(arr):
             continue    
     return sum  
 print(negatif_toplam(arr))
+
+
+
+
+
+#####################
+def negatif_toplam2 (array, index=0):
+    if index == len(array):
+        return 0
+
+    if array[index] < 0:
+        return array[index] + negatif_toplam2(array, index + 1)
+    else:
+        return negatif_toplam2(array, index + 1)
+        
+numara = [1, -2, 3, -4, 5, -6, 7, -8]
+sonuc = negatif_toplam2(numara)
+print(sonuc)
