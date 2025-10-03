@@ -6,5 +6,5 @@ class Solution(object):
         """
         parts = s.split()
         parts.reverse()
-        return " ".join(parts)
-        
+        result= " ".join(parts)
+        return result
