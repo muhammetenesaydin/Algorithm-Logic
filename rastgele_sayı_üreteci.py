@@ -1,77 +1,67 @@
-#!/usr/bin/env python3
-
+import psutil
+import random
 import time
 import os
-import hashlib
-import struct
-import random
+from pynput import mouse
 
-# -------------------------------
-# SENSOR OKUMA FONKSİYONLARI
-# -------------------------------
+# Mouse hareketi ölçümü
+mouse_delta = 0
 
-def get_cpu_temp():
-    try:
-        with open("/sys/class/thermal/thermal_zone0/temp") as f:
-            return int(f.read().strip())
-    except:
-        return random.randint(30000, 80000)
+def on_move(x, y):
+    global mouse_delta
+    mouse_delta += abs(x) + abs(y)
 
-def get_fan_value():
-    try:
-        with open("/sys/devices/pwm-fan/cur_pwm") as f:
-            return int(f.read().strip())
-    except:
-        return random.randint(0, 255)
+listener = mouse.Listener(on_move=on_move)
+listener.start()
 
-def get_cpu_load():
-    try:
-        return os.getloadavg()[0]
-    except:
-        return random.random()
+def get_system_entropy():
+    entropy = 0
 
-def get_mouse_entropy():
-    try:
-        with open("/dev/input/mice", "rb") as f:
-            return f.read(16)
-    except:
-        return os.urandom(16)
+    # CPU sıcaklığı (varsa)
+    temps = psutil.sensors_temperatures()
+    if temps:
+        for name in temps:
+            for entry in temps[name]:
+                entropy += int(entry.current * 100)
 
-# -------------------------------
-# ENTROPY TOPLAMA
-# -------------------------------
+    # Fan RPM (varsa)
+    fans = psutil.sensors_fans()
+    if fans:
+        for name in fans:
+            for fan in fans[name]:
+                entropy += fan.current or 0
 
-def collect_entropy():
-    pool = bytearray()
+    # Mouse hareketi
+    entropy += mouse_delta
 
-    pool += struct.pack("Q", time.time_ns())
-    pool += struct.pack("I", os.getpid())
-    pool += struct.pack("I", get_cpu_temp())
-    pool += struct.pack("I", get_fan_value())
-    pool += struct.pack("f", get_cpu_load())
-    pool += get_mouse_entropy()
-    pool += os.urandom(16)
+    # Zaman (nanosecond)
+    entropy += time.time_ns()
 
-    return pool
+    # Process ID
+    entropy += os.getpid()
 
-# -------------------------------
-# RASTGELE SAYI ÜRETİCİ
-# -------------------------------
+    return entropy
 
-def generate_random(min_val=0, max_val=1000):
-    entropy = collect_entropy()
-    digest = hashlib.sha256(entropy).digest()
-    number = int.from_bytes(digest, "big")
-    return min_val + (number % (max_val - min_val + 1))
+def collatz_random(seed, steps=50):
+    n = seed
 
-# -------------------------------
-# TEST / KULLANIM
-# -------------------------------
+    for _ in range(steps):
+        entropy = get_system_entropy()
+        random_factor = entropy % 7 + 1
 
-if __name__ == "__main__":
-    print("Entropy-based Random Number Generator\n")
+        if n % 2 == 0:
+            n = (n // 2) + random_factor
+        else:
+            n = (3 * n + 1) ^ random_factor  # XOR kaotik etki
 
-    for i in range(5):
-        rnd = generate_random(0, 9999)
-        print(f"[{i}] Random Number:", rnd)
-        time.sleep(0.3)
+        n = abs(n)
+
+    return n
+
+# Başlangıç tohumu
+initial_seed = random.randint(1, 10**6)
+
+result = collatz_random(initial_seed)
+
+print("Başlangıç:", initial_seed)
+print("Üretilen rastgele sayı:", result)
